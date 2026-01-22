@@ -8,125 +8,147 @@ from docx import Document
 st.set_page_config(
     page_title="YMCA Job Decoder",
     page_icon="🔴",
-    layout="centered"
+    layout="wide",  # Changed to wide for a dashboard feel
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS to enforce YMCA Red and White theme
+# --- CSS HACKS: HIDE MENU & BEAUTIFY ---
 st.markdown(
     """
     <style>
+    /* HIDE STREAMLIT MENU & FOOTER */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
     /* Main Background to White */
     .stApp {
         background-color: #FFFFFF;
         color: #000000;
     }
+    
     /* Headings in YMCA Red */
-    h1, h2, h3, span[data-testid="stMetricLabel"] {
+    h1, h2, h3, h4, span[data-testid="stMetricLabel"] {
         color: #C41230 !important;
+        font-family: 'Helvetica', sans-serif;
     }
-    /* Custom Button Styling - Red Button, White Text */
+    
+    /* Custom Button Styling */
     div.stButton > button {
         background-color: #C41230;
         color: white;
         border: none;
         font-weight: bold;
-        padding: 10px 24px;
+        font-size: 18px;
+        padding: 15px 30px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
     }
     div.stButton > button:hover {
         background-color: #A00F28;
-        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0px 6px 8px rgba(0,0,0,0.2);
     }
-    /* Metric Value styling */
-    span[data-testid="stMetricValue"] {
-       color: #C41230;
+
+    /* Input Field Styling */
+    .stTextArea textarea {
+        border: 2px solid #eee;
+        border-radius: 8px;
     }
-    /* Helper text for transliteration */
-    .translit {
-        font-style: italic;
-        color: #666666;
-        font-size: 0.9em;
-        margin-top: -10px;
-        margin-bottom: 15px;
+    .stTextArea textarea:focus {
+        border-color: #C41230;
+        box-shadow: 0 0 0 1px #C41230;
+    }
+
+    /* Success/Warning Boxes */
+    div[data-baseweb="notification"] {
+        border-radius: 8px;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# --- MULTI-LANGUAGE CONTENT DICTIONARY ---
+# --- MULTI-LANGUAGE CONTENT ---
 CONTENT = {
     "English": {
-        "instructions": "Instructions: Upload your resume on the left and paste the job posting on the right.",
-        "translit": "(Instructions: Upload your resume on the left and paste the job posting on the right.)",
-        "resume_label": "Your Resume",
-        "jd_label": "Job Description text",
-        "button": "DECODE MY RESUME",
-        "results_title": "Your Results",
-        "missing_title": "Missing Keywords (Add these to your resume!)",
-        "match_label": "Match Score",
-        "upload_label": "Upload PDF or Word Doc",
-        "paste_label": "Paste Text"
+        "title": "ATS Job Decoder",
+        "subtitle": "Beat the bots. Get hired.",
+        "instructions": "1. Upload your resume.\n2. Paste the job description.\n3. Add 'Power Keywords' you really want to highlight.",
+        "resume_col": "Your Resume",
+        "jd_col": "Job Description",
+        "power_col": "Power Keywords (Optional)",
+        "power_desc": "Enter specific high-value skills (comma separated) you want to ensure are found (e.g., 'Python, Bilingual, First Aid').",
+        "button": "ANALYZE MATCH",
+        "match_score": "ATS Match Score",
+        "missing_header": "⚠️ Critical Missing Keywords",
+        "power_hit": "✅ Power Keyword Found:",
+        "power_miss": "❌ Power Keyword Missing:",
+        "advice_high": "Excellent! Your resume speaks the same language as this job post.",
+        "advice_mid": "Good start. Add the missing keywords below to boost your chances.",
+        "advice_low": "Risk of rejection. The ATS might filter you out. Rewrite using the keywords below."
     },
     "Español (Spanish)": {
-        "instructions": "Instrucciones: Suba su currículum a la izquierda y pegue la oferta de trabajo a la derecha.",
-        "translit": "(Instrucciones: Su-ba su cu-rri-cu-lum a la iz-kier-da y pe-ge la o-fer-ta de tra-ba-jo a la de-re-cha.)",
-        "resume_label": "Su currículum",
-        "jd_label": "Texto de la descripción del trabajo",
-        "button": "DECODIFICAR MI CURRÍCULUM",
-        "results_title": "Sus Resultados",
-        "missing_title": "Palabras clave faltantes (¡Agréguelas a su currículum!)",
-        "match_label": "Puntuación de coincidencia",
-        "upload_label": "Subir PDF o Word",
-        "paste_label": "Pegar texto"
+        "title": "Decodificador de Empleo",
+        "subtitle": "Vence a los bots. Consigue el trabajo.",
+        "instructions": "1. Sube tu CV.\n2. Pega la oferta de trabajo.\n3. Añade 'Palabras Clave' importantes.",
+        "resume_col": "Tu Currículum",
+        "jd_col": "Descripción del Trabajo",
+        "power_col": "Palabras Clave (Opcional)",
+        "power_desc": "Ingresa habilidades específicas (separadas por comas) que quieres asegurar (ej. 'Español, Licencia, Ventas').",
+        "button": "ANALIZAR COINCIDENCIA",
+        "match_score": "Puntuación de Coincidencia",
+        "missing_header": "⚠️ Palabras Clave Faltantes",
+        "power_hit": "✅ Palabra Clave Encontrada:",
+        "power_miss": "❌ Palabra Clave Faltante:",
+        "advice_high": "¡Excelente! Tu currículum habla el mismo idioma que esta oferta.",
+        "advice_mid": "Buen comienzo. Añade las palabras faltantes para mejorar.",
+        "advice_low": "Riesgo de rechazo. El sistema podría filtrarte. Reescribe usando las palabras abajo."
     },
-    "العربية (Arabic)": {
-        "instructions": "التعليمات: حمل سيرتك الذاتية على اليسار والصق إعلان الوظيفة على اليمين.",
-        "translit": "(Al-ta'leemat: Hammil seeratak al-thatia ala al-yassar wa i'lan al-wazifa ala al-yameen.)",
-        "resume_label": "سيرتك الذاتية",
-        "jd_label": "نص الوصف الوظيفي",
-        "button": "فك شفرة سيرتي الذاتية",
-        "results_title": "نتائجك",
-        "missing_title": "كلمات مفتاحية مفقودة (أضفها إلى سيرتك الذاتية!)",
-        "match_label": "درجة التطابق",
-        "upload_label": "تحميل PDF أو Word",
-        "paste_label": "لصق النص"
+     "العربية (Arabic)": {
+        "title": "فك شفرة الوظائف",
+        "subtitle": "تغلب على الروبوتات. احصل على الوظيفة.",
+        "instructions": "1. حمل سيرتك الذاتية.\n2. الصق وصف الوظيفة.\n3. أضف 'كلمات مفتاحية' مهمة.",
+        "resume_col": "سيرتك الذاتية",
+        "jd_col": "وصف الوظيفة",
+        "power_col": "كلمات مفتاحية قوية (اختياري)",
+        "power_desc": "أدخل مهارات محددة (مفصولة بفواصل) تريد التأكد من وجودها.",
+        "button": "تحليل التطابق",
+        "match_score": "درجة التطابق",
+        "missing_header": "⚠️ كلمات مفتاحية مفقودة",
+        "power_hit": "✅ كلمة موجودة:",
+        "power_miss": "❌ كلمة مفقودة:",
+        "advice_high": "ممتاز! سيرتك الذاتية تتحدث نفس لغة هذا الإعلان.",
+        "advice_mid": "بداية جيدة. أضف الكلمات المفقودة أدناه لتحسين فرصك.",
+        "advice_low": "خطر الرفض. قد يقوم النظام بتصفيته. أعد الكتابة باستخدام الكلمات أدناه."
     },
-     "Українська (Ukrainian)": {
-        "instructions": "Інструкції: Завантажте своє резюме ліворуч, а опис вакансії вставте праворуч.",
-        "translit": "(Instruktsiyi: Zavantazhte svoye rezyume livoruch, a opys vakansiyi vstavte pravoruch.)",
-        "resume_label": "Ваше резюме",
-        "jd_label": "Текст опису вакансії",
-        "button": "РОЗШИФРУВАТИ МОЄ РЕЗЮМЕ",
-        "results_title": "Ваші результати",
-        "missing_title": "Відсутні ключові слова (Додайте їх до свого резюме!)",
-        "match_label": "Оцінка відповідності",
-        "upload_label": "Завантажити PDF або Word",
-        "paste_label": "Вставити текст"
-    },
-    "简体中文 (Simplified Chinese)": {
-        "instructions": "说明：在左侧上传您的简历，在右侧粘贴职位描述。",
-        "translit": "(Shuōmíng: Zài zuǒcè shàngchuán nín de jiǎnlì, zài yòucè zhāntiē zhíwèi miáoshù.)",
-        "resume_label": "您的简历",
-        "jd_label": "职位描述文本",
-        "button": "解码我的简历",
-        "results_title": "您的结果",
-        "missing_title": "缺失的关键词 (将这些添加到您的简历中！)",
-        "match_label": "匹配得分",
-        "upload_label": "上传 PDF 或 Word",
-        "paste_label": "粘贴文本"
+     "简体中文 (Simplified Chinese)": {
+        "title": "职位解码器",
+        "subtitle": "战胜机器筛选，获得录用。",
+        "instructions": "1. 上传简历。\n2. 粘贴职位描述。\n3. 添加关键“强力词”。",
+        "resume_col": "您的简历",
+        "jd_col": "职位描述",
+        "power_col": "强力关键词 (可选)",
+        "power_desc": "输入您希望确保被发现的特定高价值技能（用逗号分隔）。",
+        "button": "分析匹配度",
+        "match_score": "ATS 匹配得分",
+        "missing_header": "⚠️ 缺失的关键关键词",
+        "power_hit": "✅ 关键词已找到:",
+        "power_miss": "❌ 关键词缺失:",
+        "advice_high": "太棒了！您的简历与该职位非常匹配。",
+        "advice_mid": "良好的开端。添加下面的缺失关键词以提高分数。",
+        "advice_low": "被拒绝的风险。系统可能会过滤掉您。请使用下面的关键词重写。"
     }
 }
 
-
 # --- HELPER FUNCTIONS ---
 def clean_text(text):
-    """Cleans text by lowercasing and removing non-alphanumeric characters."""
     text = text.lower()
     text = re.sub(r'[^a-z0-9\s]', ' ', text)
     return text
 
 def get_tokens(text):
-    """Splits text into individual words (tokens)."""
     cleaned = clean_text(text)
     tokens = cleaned.split()
     return set([t for t in tokens if len(t) > 2])
@@ -138,122 +160,160 @@ def extract_text_from_pdf(file):
         for page in pdf.pages:
             text += page.extract_text() or ""
         return text
-    except Exception as e:
-        return f"Error reading PDF: {e}"
+    except Exception:
+        return ""
 
 def extract_text_from_docx(file):
     try:
         doc = Document(file)
-        text = ""
-        for para in doc.paragraphs:
-            text += para.text + "\n"
-        return text
-    except Exception as e:
-        return f"Error reading Docx: {e}"
+        return "\n".join([para.text for para in doc.paragraphs])
+    except Exception:
+        return ""
 
-# --- MAIN APP LAYOUT ---
+# --- MAIN APP UI ---
 
-# 1. Header and Logo
-col1, col2, col3 = st.columns([1,2,1])
-with col2:
+# HEADER
+col_logo, col_title = st.columns([1, 4])
+with col_logo:
     try:
-        st.image("image_0.png", use_column_width=True)
+        st.image("image_0.png", width=120)
     except FileNotFoundError:
-        st.error("Logo not found.")
+        st.write("🔴")
+with col_title:
+    # Default to English for initial load
+    lang_select = st.selectbox("Language / Idioma / اللغة / 语言", list(CONTENT.keys()), label_visibility="collapsed")
+    txt = CONTENT[lang_select]
+    st.markdown(f"# {txt['title']}")
+    st.markdown(f"**{txt['subtitle']}**")
 
-st.markdown("<h1 style='text-align: center;'>Job Description Decoder</h1>", unsafe_allow_html=True)
-st.markdown("---")
+st.write("---")
 
-# 2. Language Selection
-lang_options = list(CONTENT.keys())
-selected_lang = st.selectbox("🌐 Select Language / Seleccione el idioma / اختر اللغة", lang_options)
-text_data = CONTENT[selected_lang]
+# INPUT SECTION
+col1, col2 = st.columns(2)
 
-# 3. Instructions
-st.info(f"**{text_data['instructions']}**")
-st.markdown(f"<div class='translit'>{text_data['translit']}</div>", unsafe_allow_html=True)
-
-# 4. Input Areas
-col_res, col_jd = st.columns(2)
-
-resume_text = ""
-
-with col_res:
-    st.subheader(f"👤 {text_data['resume_label']}")
-    # Toggle for Upload vs Paste
-    input_method = st.radio("Input Method", [text_data['upload_label'], text_data['paste_label']], label_visibility="collapsed")
+with col1:
+    st.subheader(f"📄 {txt['resume_col']}")
+    upload_tab, paste_tab = st.tabs(["📁 Upload", "✍️ Paste"])
     
-    if input_method == text_data['paste_label']:
-        resume_text = st.text_area("Paste here", height=250, placeholder="Paste text...", label_visibility="collapsed")
-    else:
-        uploaded_file = st.file_uploader("Upload", type=['pdf', 'docx'], label_visibility="collapsed")
-        if uploaded_file is not None:
+    resume_text = ""
+    with upload_tab:
+        uploaded_file = st.file_uploader("Upload Resume", type=['pdf', 'docx'], label_visibility="collapsed")
+        if uploaded_file:
             if uploaded_file.name.endswith('.pdf'):
-                with st.spinner('Reading PDF...'):
-                    resume_text = extract_text_from_pdf(uploaded_file)
+                resume_text = extract_text_from_pdf(uploaded_file)
             elif uploaded_file.name.endswith('.docx'):
-                with st.spinner('Reading Word Doc...'):
-                    resume_text = extract_text_from_docx(uploaded_file)
+                resume_text = extract_text_from_docx(uploaded_file)
             
             if resume_text:
-                st.success("File loaded!")
+                st.success("✅ File Loaded")
             else:
-                st.error("Could not extract text. Try pasting it instead.")
+                st.error("❌ Error reading file")
 
-with col_jd:
-    st.subheader(f"📋 {text_data['jd_label']}")
-    # Spacer to align with the radio button offset on the left
-    st.write("") 
-    st.write("") 
-    st.write("") 
-    jd_text = st.text_area("Paste JD here", height=250, placeholder="Paste job description...", label_visibility="collapsed")
+    with paste_tab:
+        pasted_resume = st.text_area("Paste Resume", height=200, label_visibility="collapsed")
+        if not resume_text: # Prefer upload if both exist
+            resume_text = pasted_resume
 
-# 5. Decode Button
-st.write("") 
-decode_button = st.button(text_data['button'], use_container_width=True)
+with col2:
+    st.subheader(f"📋 {txt['jd_col']}")
+    jd_text = st.text_area("Paste JD", height=250, label_visibility="collapsed", placeholder="Paste the full job description here...")
 
-# 6. Logic and Results
-if decode_button:
+# POWER KEYWORDS SECTION
+st.markdown("### 🚀 " + txt['power_col'])
+power_input = st.text_input(txt['power_desc'], placeholder="e.g. Python, Leadership, CPR")
+
+# ACTION BUTTON
+st.write("")
+analyze_btn = st.button(txt['button'], use_container_width=True)
+
+# ANALYSIS LOGIC
+if analyze_btn:
     if not resume_text or not jd_text:
         st.error("Please provide both a resume and a job description.")
     else:
+        # 1. Standard Token Matching
         resume_tokens = get_tokens(resume_text)
         jd_tokens = get_tokens(jd_text)
-
-        missing_keywords = list(jd_tokens - resume_tokens)
-        missing_keywords.sort()
         
-        shared_keywords = jd_tokens.intersection(resume_tokens)
+        common_words = {"the", "and", "for", "that", "this", "with", "you", "are", "work", "will", "can", "team", "skills", "experience", "job", "role"}
+        filtered_jd_tokens = jd_tokens - common_words
         
-        if len(jd_tokens) > 0:
-            match_score = int((len(shared_keywords) / len(jd_tokens)) * 100)
+        shared = filtered_jd_tokens.intersection(resume_tokens)
+        missing = list(filtered_jd_tokens - resume_tokens)
+        
+        # Calculate Score
+        if len(filtered_jd_tokens) > 0:
+            score = int((len(shared) / len(filtered_jd_tokens)) * 100)
         else:
-            match_score = 0
+            score = 0
+            
+        # 2. Power Keyword Matching
+        power_results = []
+        if power_input:
+            power_words = [p.strip() for p in power_input.split(",") if p.strip()]
+            for pw in power_words:
+                # Simple case-insensitive substring search
+                if pw.lower() in resume_text.lower():
+                    power_results.append((True, pw))
+                else:
+                    power_results.append((False, pw))
 
+        # --- DISPLAY RESULTS DASHBOARD ---
         st.markdown("---")
-        st.header(text_data['results_title'])
-
-        col_score, col_msg = st.columns([1,2])
-        with col_score:
-            st.metric(label=text_data['match_label'], value=f"{match_score}%")
         
-        with col_msg:
-            if match_score > 80:
-                st.success("🌟 Great match! You are ready to apply.")
-            elif match_score > 50:
-                st.warning("⚠️ Good start. Add the missing keywords to improve your score.")
+        # Score Card
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+            st.markdown(f"<h2 style='text-align: center;'>{txt['match_score']}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h1 style='text-align: center; font-size: 80px; margin: -20px 0;'>{score}%</h1>", unsafe_allow_html=True)
+            
+            if score > 80:
+                st.success(txt['advice_high'])
+            elif score > 50:
+                st.warning(txt['advice_mid'])
             else:
-                st.error("🛑 Low match. You need to tailor your resume significantly.")
+                st.error(txt['advice_low'])
 
-        st.subheader(text_data['missing_title'])
-        if missing_keywords:
-            tags_html = ""
-            for word in missing_keywords:
-                 tags_html += f"<span style='background-color: #f0f2f6; border: 1px solid #C41230; color: #C41230; padding: 5px 10px; margin: 3px; border-radius: 15px; display: inline-block;'>{word}</span>"
-            st.markdown(tags_html, unsafe_allow_html=True)
+        # Power Keywords Check
+        if power_results:
+            st.markdown("#### Power Keyword Check")
+            p_cols = st.columns(len(power_results))
+            for idx, (found, word) in enumerate(power_results):
+                with p_cols[idx % 3]: # Wrap columns if many
+                    if found:
+                        st.markdown(f"<div style='padding:10px; background:#e6fffa; border:1px solid #38b2ac; border-radius:5px; color:#2c7a7b'><b>✓ {word}</b></div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<div style='padding:10px; background:#fff5f5; border:1px solid #fc8181; border-radius:5px; color:#c53030'><b>✕ {word}</b></div>", unsafe_allow_html=True)
+            st.write("")
+
+        # Missing Keywords Tags
+        st.subheader(txt['missing_header'])
+        if missing:
+            # Sort missing by length (simple heuristic for complexity) or alpha
+            missing.sort()
+            
+            # Display visually as "chips"
+            html_tags = ""
+            for word in missing[:40]: # Limit to top 40 to avoid wall of text
+                html_tags += f"""
+                <span style='
+                    display: inline-block;
+                    background-color: #f1f3f5;
+                    color: #495057;
+                    padding: 5px 12px;
+                    margin: 4px;
+                    border-radius: 20px;
+                    font-weight: 500;
+                    border: 1px solid #dee2e6;
+                '>{word}</span>
+                """
+            st.markdown(html_tags, unsafe_allow_html=True)
+            if len(missing) > 40:
+                st.caption(f"...and {len(missing)-40} more generic terms.")
         else:
              st.balloons()
-             st.success("Incredible! You aren't missing any significant keywords.")
+             st.success("Perfect Match!")
 
+# FOOTER
 st.markdown("---")
-st.caption("YMCA of Niagara Youth Employment Services. Shine On.")
+st.markdown("<div style='text-align: center; color: #888;'>YMCA of Niagara • Youth Employment Services • Shine On</div>", unsafe_allow_html=True)
